@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<style>
+#seldiv { width:100vw; position:aboslute; left:0vw; top:0vh; }
+#races { overflow-y:auto; overflow-x:auto; }
+#mapdiv { width:100vw; position:absolute; left:0vw; }
+body { margin:0px; border:0px; background:whitesmoke; font:10pt Sans-serif; }
+h2 { margin:0px; border:0px; font-size:12pt; }
+form {font-size:10pt; }
+</style>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.5.1/dist/leaflet.css" integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ==" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.5.1/dist/leaflet.js" integrity="sha512-GffPMF3RvMeYyc1LWMHtK8EbPv0iNZ8/oTtHPx9/cc2ILxQ+u905qIwdpULaqDkyBKgOaB57QTMg7ztg8Jm2Og==" crossorigin=""></script>
+
+<script src="2018_voting_precincts.js"></script>
+<!--<script src="canvass_Nov2018_general_election_harris.js"></script>//-->
+<script src="2018_general_election_results_short.js"></script>
+
+<script>
+function fmapresize() {
+   d = document.getElementById('mapdiv');
+   sh = document.getElementById('seldiv').offsetHeight;
+   d.style.height=(window.innerHeight-sh)+'px';
+   d.style.top=sh+'px';
+};
+</script>
+
+</head>
+
+<body onresize="fmapresize();">
+<div id="seldiv">
+<h2>2018 Harris County General Election Results Map (in development)</h2>
+<form>
+Race: 
+<select name="races" id="races" onchange="fracelayer()";>
+</select><br />
+Map Type: 
+<select name="maptype" id="maptype" onchange="fracelayer();">
+<option value='wbp'>Winner</option>
+<option value='pt'>% Turnout</option>
+<option value='rvd'>Registered Voters (density)</option>
+<option value='bcd'>Ballots Cast (density)</option>
+<option value='bcdr'>Ballots Cast for Republican (density)</option>
+<option value='bcdr'>Ballots Cast for Democrat (density)</option>
+</select><br />
+Middle (Tie) Value: 
+<select name="midrange" id="midrange" onchange="fracelayer();">
+<option value='0.00'>50%</option>
+<option value='0.01'>50% &plusmn1%</option>
+<option value='0.02'>50% &plusmn2%</option>
+<option value='0.03'>50% &plusmn3%</option>
+<option value='0.04'>50% &plusmn4%</option>
+<option value='0.05'>50% &plusmn5%</option>
+<option value='0.10'>50% &plusmn10%</option>
+<option value='0.15'>50% &plusmn15%</option>
+<option value='0.25'>50% &plusmn25%</option>
+<option value='0.30'>50% &plusmn30%</option>
+<option value='0.50'>Gradient (mix)</option>
+<option value='-0.50'>Gradient (white)</option>
+</select><br />
+Show Results Table: <input type="checkbox" name="showresultstable" id="showresultstable"/ >
+</form>
+</div>
+<div id="mapdiv"></div>
+
+<script>
+
+function fgetaboverange() {
+   var midpoint=0.5;
+   var range=document.getElementById('midrange').value*1;
+   return midpoint+range;
+};
+function fgetrace() { return document.getElementById('races').value; };
+function fgetmaptype() { return document.getElementById('maptype').value; };
+
+fmapresize();
+function felecresults(pobj,robj,race) {
+   for(i=0;i<pobj.length;i++) { delete pobj[i].properties.election_results; }
+   for(r=0;r<robj.races.length;r++) {
+/*
+      if (race.toUpperCase()===robj.races[r].description.toUpperCase()) {
+*/
+      if (race.toUpperCase()===robj.races[r].de.toUpperCase()) {
+         let races = robj.races[r];
+/*
+         let results = races.results;
+*/
+         let results = races.re;
+         for(p=0;p<results.length;p++) {
+            for(y=0;y<pobj.length;y++) {
+/*
+               if(results[p].precinct===pobj[y].properties.PRECINCT) {
+*/
+               if(results[p].pr===pobj[y].properties.PRECINCT) {
+                  pobj[y].properties['election_results']=results[p];
+/*
+                  pobj[y].properties.election_results['race']=races.description;
+                  pobj[y].properties.election_results['choices']=races.choices;
+*/
+                  pobj[y].properties.election_results['race']=races.de;
+                  pobj[y].properties.election_results['choices']=races.ch;
+                  break;
+               };
+            };
+         };
+      };
+   };
+};
+
+
+// this is a general function to style polygons
+function polygonstyle(feature) {
+   return {
+      fillColor: 'darkgray',
+      weight: 1,
+      opacity: 0.50,
+      color: 'darkgray',
+      fillOpacity: 0.40,
+      smoothFactor: 0.0
+   };
+};
+
+// this is a general function to add pop ups to polygons
+// it also has some 
+function popup(feature,layer) {
+   var popupary = [];
+   var popupstr = '';
+   if (feature.properties) {
+      if (feature.properties.PRECINCT) { popupary.push({label:'voting precinct',value:feature.properties.PRECINCT}); };
+      if (feature.properties.election_results) {
+/*
+         popupary.push({label:'ballots cast',value:feature.properties.election_results.ballots_cast.total});
+         popupary.push({label:'ballots cast (early)',value:feature.properties.election_results.ballots_cast.early});
+         popupary.push({label:'ballots cast (elec day)',value:feature.properties.election_results.ballots_cast.election_day});
+*/
+         popupary.push({label:'ballots cast',value:feature.properties.election_results.bc.to});
+         popupary.push({label:'ballots cast (early)',value:feature.properties.election_results.bc.ea});
+         popupary.push({label:'ballots cast (elec day)',value:feature.properties.election_results.bc.ed});
+         popupary.push({label:'race',value:feature.properties.election_results.race});
+/*
+         for (c=0;c<feature.properties.election_results.ballots_cast.choices.length;c++) {
+            popupary.push({label:feature.properties.election_results.choices[c],value:feature.properties.election_results.ballots_cast.choices[c]});
+*/
+         for (c=0;c<feature.properties.election_results.bc.ch.length;c++) {
+            popupary.push({label:feature.properties.election_results.choices[c],value:feature.properties.election_results.bc.ch[c]});
+         };
+      };
+   };
+   for (i=0; i<popupary.length; i++) {
+      popupstr += (i>0?'<br />':'')+popupary[i].label+': '+popupary[i].value;
+   };
+   layer.bindPopup(popupstr);
+   layer.on('mouseover', function () {
+      this.setStyle({
+         color: 'yellow',
+         fillOpacity: 0.65
+      });
+   });
+   layer.on('mouseout', function () {
+      this.setStyle({
+         color: 'darkgray',
+         fillOpacity: 0.40
+      });
+   });
+/*
+   layer.on('click', function () {
+   window.location = feature.properties.url;
+   });
+*/
+};
+
+// create main map
+var mainmap = L.map('mapdiv').setView([29.825, -95.435], 10);
+
+// add layers 
+// here are some XYZ map tile layers for base maps
+var l_stamen_toner = L.tileLayer('http://tile.stamen.com/toner/{z}/{x}/{y}.png',{maxZoom:20,attribution:'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.'});
+var l_stamen_toner_hybrid = L.tileLayer('http://tile.stamen.com/toner-hybrid/{z}/{x}/{y}.png',{maxZoom:20,attribution:'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.'});
+var l_stamen_toner_lite = L.tileLayer('http://tile.stamen.com/toner-lite/{z}/{x}/{y}.png',{maxZoom:20,attribution:'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.'}).addTo(mainmap);
+var l_stamen_terrain = L.tileLayer('http://tile.stamen.com/terrain/{z}/{x}/{y}.png',{maxZoom:20,attribution:'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.'});
+var l_carto_voyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}' + (L.Browser.retina ? '@2x.png' : '.png'), {maxZoom: 20,subdomains: 'abcd',attribution:'&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'});
+var l_carto_light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}' + (L.Browser.retina ? '@2x.png' : '.png'), {maxZoom: 20,subdomains: 'abcd',attribution:'&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'});
+var l_carto_dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}' + (L.Browser.retina ? '@2x.png' : '.png'), {maxZoom: 20,subdomains: 'abcd',attribution:'&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'});
+
+var baseMaps = {
+    'Stamen Toner':l_stamen_toner,
+    'Stamen Toner Hybrid':l_stamen_toner_hybrid,
+    'Stamen Toner Lite':l_stamen_toner_lite,
+    'Stamen Terrain':l_stamen_terrain,
+    'Carto Voyager (non-commercial use only)':l_carto_voyager,
+    'Carto Light (non-commercial use only)':l_carto_light,
+    'Carto Dark (non-commercial use only)':l_carto_dark,
+};
+var overlayMaps = {
+//    'State':l_state,
+//    'County':l_county,
+//    'Congressional District':l_cd
+//    'Congressional District (by party of rep)':l_cd_rep,
+//    'Congressional District (by sex of rep)':l_cd_rep_sex,
+//    'Harris County Voting Precinct':l_voting_pct,
+//    'Harris County Commissioner Precinct':l_commissioner_pct,
+};
+
+var lcontrol = L.control.layers(baseMaps,overlayMaps).addTo(mainmap);
+L.control.scale().addTo(mainmap);
+
+var lracelayer;
+var lracedata;
+function fracelist(divr,races) {
+   for (i=0;i<races.length;i++) {
+      var n = document.createElement("option");
+/*
+      n.value = races[i].description;
+*/
+      n.value = races[i].de;
+      n.innerHTML = n.value;
+      divr.appendChild(n);
+   };
+};
+
+
+function fracelayer(race=null) {
+   race = race ? race : fgetrace();
+   var aboverange = fgetaboverange();
+   lracedata = felecresults(harris_county_voting_precincts.features,election_results,race);
+   if (lracelayer) {
+      mainmap.removeLayer(lracelayer);
+      lcontrol.removeLayer(lracelayer);
+   };
+   lracelayer = L.geoJSON(harris_county_voting_precincts,{
+      attribution:'Harris County Commissioners Court and Harris County Tax Office',
+      style: function (feature) {
+        let pstyle = polygonstyle(feature);
+        var nonpartisan = 0;
+        var majorparty = 0;
+        var partyr = 0;
+        var partyd = 0;
+        var votefor = 0;
+        var voteagainst = 0;
+        var votetotal = 0;
+        var er = feature.properties.election_results;
+        if (er) {
+/*
+           for (c=0;c<er.ballots_cast.choices.length;c++) {
+              var choice = er.choices[c].substring(0,3);
+              var votes = er.ballots_cast.choices[c].replace(',','')*1;
+*/
+           for (c=0;c<er.bc.ch.length;c++) {
+              var choice = er.choices[c].substring(0,3);
+              var votes = er.bc.ch[c].replace(',','')*1;
+              if (choice==='FOR'||choice==='YES') {votefor = votes}
+              else if (choice==='AGA'||choice==='NO') {voteagainst = votes}
+              else if (choice==='REP') {partyr = votes}
+              else if (choice==='DEM') {partyd = votes}
+              else if (choice==='IND'||choice==='LIB') {}
+              else { nonpartisan+=1 };
+              votetotal += votes;
+           };
+        };
+        majorparty = partyr+partyd;
+        pstyle.fillColor = er?
+           (votetotal===0?'darkgray'
+/*
+              :nonpartisan===er.ballots_cast.choices.length?'orange'
+*/
+              :nonpartisan===er.bc.ch.length?'orange'
+              :(aboverange>=1.0&&votefor+voteagainst>0)?'rgb('+(voteagainst/votetotal>0.5?255:(voteagainst/votetotal*2*255))+','+(votefor/votetotal>0.5?255:(votefor/votetotal*2*255))+',0)'
+              :(aboverange<=0.0&&votefor+voteagainst>0)?'rgb('+(voteagainst/votetotal>0.5?255:(voteagainst/votetotal*2*255))+','+(votefor/votetotal>0.5?255:(votefor/votetotal*2*255))+','+(votefor/votetotal>0.5?(voteagainst/votetotal*2*255):(votefor/votetotal*2*255))+')'
+              :votefor/votetotal>aboverange?'green'
+              :voteagainst/votetotal>aboverange?'red'
+              :votefor+voteagainst>0?'yellow'
+              :votetotal-partyr-partyd>majorparty?'goldenrod'
+              :aboverange>=1.0?'rgb('+partyr/majorparty*255+',0,'+partyd/majorparty*255+')'
+              :aboverange<=0.0?'rgb('+(partyr/majorparty>0.5?255:(partyr/majorparty*2*255))+','+(partyd/majorparty>0.5?(partyr/majorparty*2*255):(partyd/majorparty*2*255))+','+(partyd/majorparty>0.5?255:(partyd/majorparty*2*255))+')'
+              :partyr/majorparty>aboverange?'red'
+              :partyd/majorparty>aboverange?'blue'
+              :'purple'
+           ):'none';
+        return pstyle;
+     },
+     onEachFeature:popup
+  });
+  lracelayer.addTo(mainmap);
+  fdatatable(race);
+};
+
+function fdatatable(race) {
+
+};
+
+fracelist(document.getElementById("races"),election_results.races);
+fracelayer();
+</script>
+
+</body>
+</html>
