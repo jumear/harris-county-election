@@ -43,9 +43,12 @@ Map Type:
 <option value='pt'>% Turnout</option>
 <option value='rv'>Registered Voters</option>
 <option value='rvd'>Registered Voters (density)</option>
+<option value='bc'>Ballots Cast</option>
 <option value='bcd'>Ballots Cast (density)</option>
-<option value='bcdr'>Ballots Cast for Republican (density)</option>
-<option value='bcdr'>Ballots Cast for Democrat (density)</option>
+<option value='bc_r'>Ballots Cast for Republican</option>
+<option value='bcd_r'>Ballots Cast for Republican (density)</option>
+<option value='bc_d'>Ballots Cast for Democrat</option>
+<option value='bcd_d'>Ballots Cast for Democrat (density)</option>
 </select><br />
 Middle (Tie) Value: 
 <select name="midrange" id="midrange" onchange="fracelayer();">
@@ -70,7 +73,6 @@ Show Results Table: <input type="checkbox" name="showresultstable" id="showresul
 <script>
 
 let sqm_per_sqmi = 2589988.1103;
-
 
 function fgetaboverange() {
    var midpoint=0.5;
@@ -184,7 +186,6 @@ var mainmap = L.map('mapdiv').setView([29.825, -95.435], 10);
 // add layers 
 // here are some XYZ map tile layers for base maps
 var l_stamen_toner = L.tileLayer('http://tile.stamen.com/toner/{z}/{x}/{y}.png',{maxZoom:20,attribution:'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.'});
-var l_stamen_toner_hybrid = L.tileLayer('http://tile.stamen.com/toner-hybrid/{z}/{x}/{y}.png',{maxZoom:20,attribution:'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.'});
 var l_stamen_toner_lite = L.tileLayer('http://tile.stamen.com/toner-lite/{z}/{x}/{y}.png',{maxZoom:20,attribution:'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.'}).addTo(mainmap);
 var l_stamen_terrain = L.tileLayer('http://tile.stamen.com/terrain/{z}/{x}/{y}.png',{maxZoom:20,attribution:'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.'});
 var l_carto_voyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}' + (L.Browser.retina ? '@2x.png' : '.png'), {maxZoom: 20,subdomains: 'abcd',attribution:'&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'});
@@ -193,7 +194,6 @@ var l_carto_dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{
 
 var baseMaps = {
     'Stamen Toner':l_stamen_toner,
-    'Stamen Toner Hybrid':l_stamen_toner_hybrid,
     'Stamen Toner Lite':l_stamen_toner_lite,
     'Stamen Terrain':l_stamen_terrain,
     'Carto Voyager (non-commercial use only)':l_carto_voyager,
@@ -250,10 +250,13 @@ function fracelayer(race=null) {
          var pctturnout = 0;
          var rvdensity = 0;
          var regvoters = 0;
+         var ballotscast = 0;
          var bcdensity = 0;
+         var bcdensityr = 0;
+         var bcdensityd = 0;
          var er = feature.properties.election_results;
          if (er) {
-            if (fgetmaptype()==='wbp') {
+            if (['wbp','bcd_r','bcd_d','bc_r','bc_d'].includes(fgetmaptype())) {
 /*
                for (c=0;c<er.ballots_cast.choices.length;c++) {
                   var choice = er.choices[c].substring(0,3);
@@ -262,27 +265,35 @@ function fracelayer(race=null) {
                for (c=0;c<er.bc.ch.length;c++) {
                   var choice = er.choices[c].substring(0,3);
                   var votes = er.bc.ch[c].replace(',','')*1;
-                  if (choice==='FOR'||choice==='YES') {votefor = votes}
-                  else if (choice==='AGA'||choice==='NO') {voteagainst = votes}
+                  if (['FOR','YES'].includes(choice)) {votefor = votes}
+                  else if (['AGA','NO'].includes(choice)) {voteagainst = votes}
                   else if (choice==='REP') {partyr = votes}
                   else if (choice==='DEM') {partyd = votes}
-                  else if (choice==='IND'||choice==='LIB') {}
+                  else if (['IND','LIB'].includes(choice)) {}
                   else { nonpartisan+=1 };
                   votetotal += votes;
                };
-            }
-            else if (fgetmaptype()==='pt') {pctturnout=er.pt.replace('%','')/100;} 
+            };
+            if (fgetmaptype()==='pt') {pctturnout=er.pt.replace('%','')/100;} 
             else if (fgetmaptype()==='rvd') {rvdensity=er.rv.replace(',','')/feature.properties.Shapearea*sqm_per_sqmi;} 
             else if (fgetmaptype()==='rv') {regvoters=er.rv.replace(',','')} 
+            else if (fgetmaptype()==='bc') {ballotscast=er.bc.to.replace(',','')}
             else if (fgetmaptype()==='bcd') {bcdensity=er.bc.to.replace(',','')/feature.properties.Shapearea*sqm_per_sqmi;} 
+            else if (fgetmaptype()==='bcd_r') {bcdensityr=partyr/feature.properties.Shapearea*sqm_per_sqmi;} 
+            else if (fgetmaptype()==='bcd_d') {bcdensityd=partyd/feature.properties.Shapearea*sqm_per_sqmi;} 
          };
          majorparty = partyr+partyd;
          pstyle.fillColor = er?
 //            (fgetmaptype()==='pt')?'rgb('+pctturnout*255+','+pctturnout*255+','+0+')'
             (fgetmaptype()==='pt')?'rgb('+(pctturnout<0.5?0:((pctturnout-0.5)/0.5*255))+','+pctturnout*255+','+(pctturnout<0.5?((pctturnout)/0.5*255):((1-pctturnout)/0.5*255))+')'
-            :(fgetmaptype()==='rvd')?'rgb('+(rvdensity/750*255)+','+(rvdensity/750*255)+','+0+')'
-            :(fgetmaptype()==='rv')?'rgb('+(regvoters/7500*255)+','+(regvoters/7500*255)+','+0+')'
-            :(fgetmaptype()==='bcd')?'rgb('+(bcdensity/500*255)+','+0+','+(bcdensity/500*255)+')'
+            :(fgetmaptype()==='rv')?'rgb('+(regvoters/7500*255)+','+(regvoters/7500*255)+','+((1-(regvoters/7500))*64)+')'
+            :(fgetmaptype()==='rvd')?'rgb('+(rvdensity/750*255)+','+(rvdensity/750*255)+','+((1-(regvoters/750))*64)+')'
+            :(fgetmaptype()==='bc')?'rgb('+(ballotscast/4000*255)+','+((1-(ballotscast/4000))*64)+','+(ballotscast/4000*255)+')'
+            :(fgetmaptype()==='bcd')?'rgb('+(bcdensity/400*255)+','+((1-(bcdensity/400))*64)+','+(bcdensity/400*255)+')'
+            :(fgetmaptype()==='bc_r')?'rgb('+(partyr/1500*255)+','+((1-(partyr/1500))*64)+','+((1-(partyr/1500))*64)+')'
+            :(fgetmaptype()==='bcd_r')?'rgb('+(bcdensityr/150*255)+','+((1-(bcdensityr/150))*64)+','+((1-(bcdensityr/150))*64)+')'
+            :(fgetmaptype()==='bc_d')?'rgb('+((1-(partyd/1500))*64)+','+((1-(partyd/1500))*64)+','+(partyd/1500*255)+')'
+            :(fgetmaptype()==='bcd_d')?'rgb('+((1-(bcdensityd/150))*64)+','+((1-(bcdensityd/150))*64)+','+(bcdensityd/150*255)+')'
             :(votetotal===0?'darkgray'
 /*
                :nonpartisan===er.ballots_cast.choices.length?'orange'
