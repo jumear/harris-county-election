@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
 
@@ -39,7 +39,7 @@ Race:
 Map Type: 
 <select name="maptype" id="maptype" onchange="fracelayer();">
 <option value='wbp'>Winner</option>
-<option value='spp'>% Straight Party</option>
+<option value='sp'>% Straight Party</option>
 <option value='pt'>% Turnout</option>
 <option value='rv'>Registered Voters</option>
 <option value='rvd'>Registered Voters (density)</option>
@@ -60,6 +60,7 @@ Middle (Tie) Value:
 <option value='0.05'>50% &plusmn5%</option>
 <option value='0.10'>50% &plusmn10%</option>
 <option value='0.15'>50% &plusmn15%</option>
+<option value='0.20'>50% &plusmn20%</option>
 <option value='0.25'>50% &plusmn25%</option>
 <option value='0.30'>50% &plusmn30%</option>
 <option value='0.50'>Gradient (mix)</option>
@@ -81,6 +82,7 @@ function fgetaboverange() {
 };
 function fgetrace() { return document.getElementById('races').value; };
 function fgetmaptype() { return document.getElementById('maptype').value; };
+function fismaptype(type) { return fgetmaptype()===type; };
 
 fmapresize();
 function felecresults(pobj,robj,race) {
@@ -116,61 +118,68 @@ function felecresults(pobj,robj,race) {
    };
 };
 
-
-// this is a general function to style polygons
+// this is a general function to style polygons (default style)
 function polygonstyle(feature) {
    return {
       fillColor: 'darkgray',
       weight: 1,
-      opacity: 0.50,
+      opacity: 0.55,
       color: 'darkgray',
-      fillOpacity: 0.40,
+      fillOpacity: 0.55,
       smoothFactor: 0.0
    };
 };
 
-// this is a general function to add pop ups to polygons
-// it also has some 
-function popup(feature,layer) {
+// this is a general function to add interactive actions (interactions) to the feature polygons:
+// 1. popup text on click
+// 2. increase polygon opacity and use yellow border when moused over
+// 3. reset polygon opacity and border when moused out
+function finteract(feature,layer) {
    var popupary = [];
    var popupstr = '';
-   if (feature.properties) {
-      if (feature.properties.PRECINCT) { popupary.push({label:'voting precinct',value:feature.properties.PRECINCT}); };
-      if (feature.properties.election_results) {
+   let fp = feature.properties;
+   if (fp) {
+      popupary.push({label:'🏛️'});
+      if (fp.PRECINCT) { popupary.push({label:'voting precinct',value:fp.PRECINCT}); };
+      var er = fp.election_results;
+      if (er) {
 /*
-         popupary.push({label:'ballots cast',value:feature.properties.election_results.ballots_cast.total});
-         popupary.push({label:'ballots cast (early)',value:feature.properties.election_results.ballots_cast.early});
-         popupary.push({label:'ballots cast (elec day)',value:feature.properties.election_results.ballots_cast.election_day});
+         popupary.push({label:'ballots cast',value:er.ballots_cast.total});
+         popupary.push({label:'ballots cast (early)',value:er.ballots_cast.early});
+         popupary.push({label:'ballots cast (elec day)',value:er.ballots_cast.election_day});
 */
-         popupary.push({label:'ballots cast',value:feature.properties.election_results.bc.to});
-         popupary.push({label:'ballots cast (early)',value:feature.properties.election_results.bc.ea});
-         popupary.push({label:'ballots cast (elec day)',value:feature.properties.election_results.bc.ed});
-         popupary.push({label:'registered voters',value:feature.properties.election_results.rv});
-         popupary.push({label:'percent turnout',value:feature.properties.election_results.pt});
-         popupary.push({label:'race',value:feature.properties.election_results.race});
+         popupary.push({label:'race',value:er.race});
+         popupary.push({label:'🙋'});
+         popupary.push({label:'registered voters',value:er.rv});
+         popupary.push({label:'percent turnout',value:er.pt});
+         popupary.push({label:'🗳️'});
+         popupary.push({label:'ballots cast',value:er.bc.to});
+         popupary.push({label:'ballots cast (early)',value:er.bc.ea});
+         popupary.push({label:'ballots cast (elec day)',value:er.bc.ed});
+         popupary.push({label:'☑️'});
 /*
-         for (c=0;c<feature.properties.election_results.ballots_cast.choices.length;c++) {
-            popupary.push({label:feature.properties.election_results.choices[c],value:feature.properties.election_results.ballots_cast.choices[c]});
+         for (c=0;c<er.ballots_cast.choices.length;c++) {
+            popupary.push({label:er.choices[c],value:er.ballots_cast.choices[c]});
 */
-         for (c=0;c<feature.properties.election_results.bc.ch.length;c++) {
-            popupary.push({label:feature.properties.election_results.choices[c],value:feature.properties.election_results.bc.ch[c]});
+         for (c=0;c<er.bc.ch.length;c++) {
+            popupary.push({label:er.choices[c],value:er.bc.ch[c]});
          };
       };
    };
    for (i=0; i<popupary.length; i++) {
-      popupstr += (i>0?'<br />':'')+popupary[i].label+': '+popupary[i].value;
+      popupstr += (i>0?'<br />':'')+popupary[i].label+(popupary[i].value?': '+popupary[i].value:'');
    };
    layer.bindPopup(popupstr);
    layer.on('mouseover', function () {
       this.setStyle({
          color: 'yellow',
-         fillOpacity: 0.65
+         fillOpacity: 0.75
       });
    });
    layer.on('mouseout', function () {
       this.setStyle({
          color: 'darkgray',
-         fillOpacity: 0.40
+         fillOpacity: 0.55
       });
    });
 /*
@@ -180,7 +189,7 @@ function popup(feature,layer) {
 */
 };
 
-// create main map
+// create main map, and center default view on Harris County
 var mainmap = L.map('mapdiv').setView([29.825, -95.435], 10);
 
 // add layers 
@@ -227,6 +236,8 @@ function fracelist(divr,races) {
    };
 };
 
+function frgb(r,g,b) { return 'rgb('+r+','+g+','+b+')'; };
+function fnocomma(str) { return str.replace(/,/g,''); };
 
 function fracelayer(race=null) {
    race = race ? race : fgetrace();
@@ -240,87 +251,92 @@ function fracelayer(race=null) {
       attribution:'Harris County Commissioners Court and Harris County Tax Office',
       style: function (feature) {
          let pstyle = polygonstyle(feature);
-         var nonpartisan = 0;
-         var majorparty = 0;
-         var partyr = 0;
-         var partyd = 0;
-         var votefor = 0;
-         var voteagainst = 0;
-         var votetotal = 0;
+         let er = feature.properties.election_results;
+         var race_nonpartisan = false;
+         var race_for_against = false;
+         var vote_np = 0; // nonpartisan votes
+         var vote_mp = 0; // major party votes
+         var vote_r = 0;
+         var vote_d = 0;
+         var vote_y = 0;
+         var vote_n = 0;
+         var vote_total = 0;
          var pctturnout = 0;
-         var rvdensity = 0;
          var regvoters = 0;
-         var ballotscast = 0;
+         var rvdensity = 0;
+         var ballotscast = 0; // might differ from vote_total if there are write-in candidates
          var bcdensity = 0;
-         var bcdensityr = 0;
-         var bcdensityd = 0;
-         var er = feature.properties.election_results;
+         var bcdensity_r = 0;
+         var bcdensity_d = 0;
+         let pareami = feature.properties.Shapearea/sqm_per_sqmi;
+
          if (er) {
-            if (['wbp','bcd_r','bcd_d','bc_r','bc_d'].includes(fgetmaptype())) {
 /*
-               for (c=0;c<er.ballots_cast.choices.length;c++) {
-                  var choice = er.choices[c].substring(0,3);
-                  var votes = er.ballots_cast.choices[c].replace(',','')*1;
+            for (c=0;c<er.ballots_cast.choices.length;c++) {
+               var choice = er.choices[c].substring(0,3);
+               var votes = fnocomma(er.ballots_cast.choices[c])*1;
 */
-               for (c=0;c<er.bc.ch.length;c++) {
-                  var choice = er.choices[c].substring(0,3);
-                  var votes = er.bc.ch[c].replace(',','')*1;
-                  if (['FOR','YES'].includes(choice)) {votefor = votes}
-                  else if (['AGA','NO'].includes(choice)) {voteagainst = votes}
-                  else if (choice==='REP') {partyr = votes}
-                  else if (choice==='DEM') {partyd = votes}
-                  else if (['IND','LIB'].includes(choice)) {}
-                  else { nonpartisan+=1 };
-                  votetotal += votes;
-               };
+            for (c=0;c<er.bc.ch.length;c++) {
+               var choice = er.choices[c].substring(0,3);
+               var votes = fnocomma(er.bc.ch[c])*1;
+               if (['FOR','YES'].includes(choice)) {vote_y = votes}
+               else if (['AGA','NO'].includes(choice)) {vote_n = votes}
+               else if (choice==='REP') {vote_r = votes}
+               else if (choice==='DEM') {vote_d = votes}
+               else if (['IND','LIB'].includes(choice)) {}
+               else { vote_np+=1 };
+               vote_total += votes;
             };
-            if (fgetmaptype()==='pt') {pctturnout=er.pt.replace('%','')/100;} 
-            else if (fgetmaptype()==='rvd') {rvdensity=er.rv.replace(',','')/feature.properties.Shapearea*sqm_per_sqmi;} 
-            else if (fgetmaptype()==='rv') {regvoters=er.rv.replace(',','')} 
-            else if (fgetmaptype()==='bc') {ballotscast=er.bc.to.replace(',','')}
-            else if (fgetmaptype()==='bcd') {bcdensity=er.bc.to.replace(',','')/feature.properties.Shapearea*sqm_per_sqmi;} 
-            else if (fgetmaptype()==='bcd_r') {bcdensityr=partyr/feature.properties.Shapearea*sqm_per_sqmi;} 
-            else if (fgetmaptype()==='bcd_d') {bcdensityd=partyd/feature.properties.Shapearea*sqm_per_sqmi;} 
-         };
-         majorparty = partyr+partyd;
-         pstyle.fillColor = er?
-//            (fgetmaptype()==='pt')?'rgb('+pctturnout*255+','+pctturnout*255+','+0+')'
-            (fgetmaptype()==='pt')?'rgb('+(pctturnout<0.5?0:((pctturnout-0.5)/0.5*255))+','+pctturnout*255+','+(pctturnout<0.5?((pctturnout)/0.5*255):((1-pctturnout)/0.5*255))+')'
-            :(fgetmaptype()==='rv')?'rgb('+(regvoters/7500*255)+','+(regvoters/7500*255)+','+((1-(regvoters/7500))*64)+')'
-            :(fgetmaptype()==='rvd')?'rgb('+(rvdensity/750*255)+','+(rvdensity/750*255)+','+((1-(regvoters/750))*64)+')'
-            :(fgetmaptype()==='bc')?'rgb('+(ballotscast/4000*255)+','+((1-(ballotscast/4000))*64)+','+(ballotscast/4000*255)+')'
-            :(fgetmaptype()==='bcd')?'rgb('+(bcdensity/400*255)+','+((1-(bcdensity/400))*64)+','+(bcdensity/400*255)+')'
-            :(fgetmaptype()==='bc_r')?'rgb('+(partyr/1500*255)+','+((1-(partyr/1500))*64)+','+((1-(partyr/1500))*64)+')'
-            :(fgetmaptype()==='bcd_r')?'rgb('+(bcdensityr/150*255)+','+((1-(bcdensityr/150))*64)+','+((1-(bcdensityr/150))*64)+')'
-            :(fgetmaptype()==='bc_d')?'rgb('+((1-(partyd/1500))*64)+','+((1-(partyd/1500))*64)+','+(partyd/1500*255)+')'
-            :(fgetmaptype()==='bcd_d')?'rgb('+((1-(bcdensityd/150))*64)+','+((1-(bcdensityd/150))*64)+','+(bcdensityd/150*255)+')'
-            :(votetotal===0?'darkgray'
+            if (fismaptype('pt')) {pctturnout=er.pt.replace('%','')/100;} 
+            else if (fismaptype('rv')) {regvoters=fnocomma(er.rv)*1;}
+            else if (fismaptype('rvd')) {rvdensity=fnocomma(er.rv)/pareami;}
+            else if (fismaptype('bc')) {ballotscast=fnocomma(er.bc.to);}
+            else if (fismaptype('bcd')) {bcdensity=fnocomma(er.bc.to)/pareami;} 
+            else if (fismaptype('bcd_r')) {bcdensity_r=vote_r/pareami;} 
+            else if (fismaptype('bcd_d')) {bcdensity_d=vote_d/pareami;}
+
+            vote_mp = vote_r+vote_d;
 /*
-               :nonpartisan===er.ballots_cast.choices.length?'orange'
+            race_nonpartisan = vote_np===er.ballots_cast.choices.length;
 */
-               :nonpartisan===er.bc.ch.length?'orange'
-               :(aboverange>=1.0&&votefor+voteagainst>0)?'rgb('+(voteagainst/votetotal>0.5?255:(voteagainst/votetotal*2*255))+','+(votefor/votetotal>0.5?255:(votefor/votetotal*2*255))+',0)'
-               :(aboverange<=0.0&&votefor+voteagainst>0)?'rgb('+(voteagainst/votetotal>0.5?255:(voteagainst/votetotal*2*255))+','+(votefor/votetotal>0.5?255:(votefor/votetotal*2*255))+','+(votefor/votetotal>0.5?(voteagainst/votetotal*2*255):(votefor/votetotal*2*255))+')'
-               :votefor/votetotal>aboverange?'green'
-               :voteagainst/votetotal>aboverange?'red'
-               :votefor+voteagainst>0?'yellow'
-               :votetotal-partyr-partyd>majorparty?'goldenrod'
-               :aboverange>=1.0?'rgb('+partyr/majorparty*255+',0,'+partyd/majorparty*255+')'
-               :aboverange<=0.0?'rgb('+(partyr/majorparty>0.5?255:(partyr/majorparty*2*255))+','+(partyd/majorparty>0.5?(partyr/majorparty*2*255):(partyd/majorparty*2*255))+','+(partyd/majorparty>0.5?255:(partyd/majorparty*2*255))+')'
-               :partyr/majorparty>aboverange?'red'
-               :partyd/majorparty>aboverange?'blue'
-               :'purple'
-            ):'none';
+            race_nonpartisan = vote_np===er.bc.ch.length;
+            race_for_against = vote_y+vote_n>0;
+         };
+         pstyle.fillColor = !er ? 'none'
+            :fismaptype('rv')?(regvoters===0?'darkgray':frgb( (regvoters/7500*255) , (regvoters/7500*255) , ((1-(regvoters/7500))*64) ))
+            :fismaptype('rvd')?(rvdensity===0?'darkgray':frgb( (rvdensity/750*255) , (rvdensity/750*255) , ((1-(rvdensity/750))*64) ))
+            :vote_total===0?'darkgray'
+//            :fismaptype('pt')?frgb( pctturnout*255 , pctturnout*255 , 0 )
+            :fismaptype('pt')?frgb( (pctturnout<0.5?0:((pctturnout-0.5)/0.5*255)) , pctturnout*255 , (pctturnout<0.5?((pctturnout)/0.5*255):((1-pctturnout)/0.5*255)) )
+            :fismaptype('bc')?frgb( (ballotscast/4000*255) , ((1-(ballotscast/4000))*64) , (ballotscast/4000*255) )
+            :fismaptype('bcd')?frgb( (bcdensity/400*255) , ((1-(bcdensity/400))*64) , +(bcdensity/400*255) )
+            :fismaptype('bc_r')?(race_for_against||race_nonpartisan?'darkgray':frgb( +(vote_r/1500*255) , ((1-(vote_r/1500))*64) , ((1-(vote_r/1500))*64) )) 
+            :fismaptype('bcd_r')?(race_for_against||race_nonpartisan?'darkgray':frgb( (bcdensity_r/150*255) , ((1-(bcdensity_r/150))*64) , ((1-(bcdensity_r/150))*64) )) 
+            :fismaptype('bc_d')?(race_for_against||race_nonpartisan?'darkgray':frgb( ((1-(vote_d/1500))*64) , ((1-(vote_d/1500))*64) , (vote_d/1500*255) )) 
+            :fismaptype('bcd_d')?(race_for_against||race_nonpartisan?'darkgray':frgb( ((1-(bcdensity_d/150))*64) , ((1-(bcdensity_d/150))*64) , (bcdensity_d/150*255) )) 
+            :fismaptype('sp')?'darkgray' // unhandled
+            //fismaptype('wbp') from this point
+            :race_nonpartisan?'orange'
+            :(race_for_against&&aboverange>=1.0)?frgb( (vote_n/vote_total>0.5?255:(vote_n/vote_total*2*255)) , (vote_y/vote_total>0.5?255:(vote_y/vote_total*2*255)) , 0 )
+            :(race_for_against&&aboverange<=0.0)?frgb( (vote_n/vote_total>0.5?255:(vote_n/vote_total*2*255)) , (vote_y/vote_total>0.5?255:(vote_y/vote_total*2*255)) , (vote_y/vote_total>0.5?(vote_n/vote_total*2*255):(vote_y/vote_total*2*255)) )
+            :vote_y/vote_total>aboverange?'green'
+            :vote_n/vote_total>aboverange?'red'
+            :race_for_against?'yellow'
+            :vote_total-vote_mp>vote_mp?'goldenrod'
+            :aboverange>=1.0?'rgb('+vote_r/vote_mp*255+',0,'+vote_d/vote_mp*255+')'
+            :aboverange<=0.0?'rgb('+(vote_r/vote_mp>0.5?255:(vote_r/vote_mp*2*255))+','+(vote_d/vote_mp>0.5?(vote_r/vote_mp*2*255):(vote_d/vote_mp*2*255))+','+(vote_d/vote_mp>0.5?255:(vote_d/vote_mp*2*255))+')'
+            :vote_r/vote_mp>aboverange?'red'
+            :vote_d/vote_mp>aboverange?'blue'
+            :'purple';
          return pstyle;
       },
-      onEachFeature:popup
+      onEachFeature:finteract
    });
    lracelayer.addTo(mainmap);
    fdatatable(race);
 };
 
 function fdatatable(race) {
-
 };
 
 fracelist(document.getElementById("races"),election_results.races);
