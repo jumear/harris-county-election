@@ -3,12 +3,14 @@
 <head>
 
 <style>
-#seldiv { width:100vw; position:aboslute; left:0vw; top:0vh; }
-#races { overflow-y:auto; overflow-x:auto; }
-#mapdiv { width:100vw; position:absolute; left:0vw; }
+#seldiv { width:380px; position:absolute; top:0px; left:0px; padding:10px; }
+#datadiv { width:380px; position:absolute; top:0px; left:0px; padding:10px; overflow:scroll; }
+#mapdiv { height:100vh; width:1000px; position:absolute; top:0px; left:380px; }
+#races { overflow-y:auto; overflow-x:auto; width:320px; }
+.tar { text-align:right; }
 body { margin:0px; border:0px; background:whitesmoke; font:10pt Sans-serif; }
 h2 { margin:0px; border:0px; font-size:12pt; }
-form {font-size:10pt; }
+form { font-size:10pt; margin:10px 0px; }
 </style>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.5.1/dist/leaflet.css" integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ==" crossorigin=""/>
@@ -20,10 +22,13 @@ form {font-size:10pt; }
 
 <script>
 function fmapresize() {
-   d = document.getElementById('mapdiv');
-   sh = document.getElementById('seldiv').offsetHeight;
-   d.style.height=(window.innerHeight-sh)+'px';
-   d.style.top=sh+'px';
+   md = document.getElementById('mapdiv');
+   sd = document.getElementById('seldiv');
+   dd = document.getElementById('datadiv');
+   md.style.width=(window.innerWidth-sd.offsetWidth)+'px';
+   md.style.left=sd.offsetWidth+'px';
+   dd.style.height=(window.innerHeight-sd.offsetHeight-20)+'px';
+   dd.style.top=sd.offsetHeight+'px'
 };
 </script>
 
@@ -34,7 +39,7 @@ function fmapresize() {
 <h2>2018 Harris County General Election Results Map (in development)</h2>
 <form>
 Race: 
-<select name="races" id="races" onchange="fracelayer()";>
+<select name="races" id="races" onchange="fracelayer();">
 </select><br />
 Map Type: 
 <select name="maptype" id="maptype" onchange="fracelayer();">
@@ -68,12 +73,106 @@ Middle (Tie) Value:
 </select><br />
 Show Results Table: <input type="checkbox" name="showresultstable" id="showresultstable"/ >
 </form>
+
 </div>
+<div id="datadiv"></div>
 <div id="mapdiv"></div>
 
 <script>
 
+function faddelem(etype,eparent,eid=null,eclass=null,ehtml=null) {
+  var e = document.createElement(etype);
+  if (eid) {e.id=eid;};
+  if (eclass) {e.className=eclass;};
+  if (ehtml) {e.innerHTML=ehtml;};
+  eparent.appendChild(e);
+  return e;
+};
+
 let sqm_per_sqmi = 2589988.1103;
+
+function fdatatable(racedata) {
+   var data = document.getElementById('data');
+   if (data) { data.remove(); };
+   var datadiv = document.getElementById('datadiv');
+   data = faddelem('table',datadiv,'data');
+   var thead = faddelem('thead',data);
+   var hrow = faddelem('tr',thead);
+   var tbody = faddelem('tbody',data);
+   faddelem('th',hrow,'datahdr_precinct',null,'Precinct');
+   var headerdone = false;
+   var ch_r = -1;
+   var ch_d = -1;
+   for (p=0;p<racedata.length;p++) {
+      let precinct = racedata[p].properties;
+      let er = precinct.election_results;
+      if (er) {
+         if (fismaptype('wbp')) {
+            if (!headerdone) {
+               headerdone = true;
+               for (c=0;c<er.choices.length;c++) {
+                  faddelem('th',hrow,'datahdr_ch'+c,'tar',er.choices[c]);
+               };
+            };
+            var brow = faddelem('tr',tbody);
+            faddelem('td',brow,null,null,precinct.PRECINCT);
+            for (c=0;c<er.bc.ch.length;c++) {
+               faddelem('td',brow,null,'tar',er.bc.ch[c]);
+            };
+         }
+         else if (fismaptypes(['rv','rvd','pt'])) {
+            if (!headerdone) {
+               headerdone = true;
+               faddelem('th',hrow,'datahdr_ch'+c,'tar','% Turnout');
+               faddelem('th',hrow,'datahdr_ch'+c,'tar','Registered Voters');
+               faddelem('th',hrow,'datahdr_ch'+c,'tar','Registered Voters per Sq. Mi.');
+            };
+            var brow = faddelem('tr',tbody);
+            faddelem('td',brow,null,null,precinct.PRECINCT);
+            faddelem('td',brow,null,'tar',er.pt);
+            faddelem('td',brow,null,'tar',er.rv);
+            faddelem('td',brow,null,'tar',(fnocomma(er.rv)/precinct.Shapearea*sqm_per_sqmi).toFixed(2));
+         }
+         else if (fismaptypes(['bc','bcd'])) {
+            if (!headerdone) {
+               headerdone = true;
+               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast (Early)');
+               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast (Election Day)');
+               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast (Total)');
+               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast per Sq. Mi.');
+            };
+            var brow = faddelem('tr',tbody);
+            faddelem('td',brow,null,null,precinct.PRECINCT);
+            faddelem('td',brow,null,'tar',er.bc.ea);
+            faddelem('td',brow,null,'tar',er.bc.ed);
+            faddelem('td',brow,null,'tar',er.bc.to);
+            faddelem('td',brow,null,'tar',(fnocomma(er.bc.to)/precinct.Shapearea*sqm_per_sqmi).toFixed(2));
+         }
+         else if (fismaptypes(['bc_r','bcd_r','bc_d','bcd_d'])) {
+            if (!headerdone) {
+               headerdone = true;
+               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast (REP)');
+               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast per Sq. Mi. (REP)');
+               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast (DEM)');
+               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast per Sq. Mi. (DEM)');
+               for (c=0;c<er.choices.length;c++) {
+                  var choice = er.choices[c].substring(0,3);
+                  if (choice==='REP') { ch_r=c; };
+                  if (choice==='DEM') { ch_d=c; };
+               };
+            };
+            var brow = faddelem('tr',tbody);
+            faddelem('td',brow,null,null,precinct.PRECINCT);
+            faddelem('td',brow,null,'tar',(ch_r<0)?'N/A':er.bc.ch[ch_r]);
+            faddelem('td',brow,null,'tar',(ch_r<0)?'N/A':(fnocomma(er.bc.ch[ch_r])/precinct.Shapearea*sqm_per_sqmi).toFixed(2));
+            faddelem('td',brow,null,'tar',(ch_d<0)?'N/A':er.bc.ch[ch_d]);
+            faddelem('td',brow,null,'tar',(ch_d<0)?'N/A':(fnocomma(er.bc.ch[ch_d])/precinct.Shapearea*sqm_per_sqmi).toFixed(2));
+         };
+      };
+   };
+};
+
+
 
 function fgetaboverange() {
    var midpoint=0.5;
@@ -83,6 +182,7 @@ function fgetaboverange() {
 function fgetrace() { return document.getElementById('races').value; };
 function fgetmaptype() { return document.getElementById('maptype').value; };
 function fismaptype(type) { return fgetmaptype()===type; };
+function fismaptypes(typeary) { return typeary.includes(fgetmaptype()); };
 
 fmapresize();
 function felecresults(pobj,robj,race) {
@@ -116,6 +216,7 @@ function felecresults(pobj,robj,race) {
          };
       };
    };
+   return pobj;
 };
 
 // this is a general function to style polygons (default style)
@@ -333,11 +434,9 @@ function fracelayer(race=null) {
       onEachFeature:finteract
    });
    lracelayer.addTo(mainmap);
-   fdatatable(race);
+   fdatatable(lracedata);
 };
 
-function fdatatable(race) {
-};
 
 fracelist(document.getElementById("races"),election_results.races);
 fracelayer();
