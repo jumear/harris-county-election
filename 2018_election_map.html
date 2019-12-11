@@ -11,6 +11,7 @@
 body { margin:0px; border:0px; background:whitesmoke; font:10pt Sans-serif; }
 h2 { margin:0px; border:0px; font-size:12pt; }
 form { font-size:10pt; margin:10px 0px; }
+td { opacity:1; }
 </style>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.5.1/dist/leaflet.css" integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ==" crossorigin=""/>
@@ -73,9 +74,8 @@ Middle (Tie) Value:
 </select><br />
 Show Results Table: <input type="checkbox" name="showresultstable" id="showresultstable"/ >
 </form>
-
 </div>
-<div id="datadiv"></div>
+<div id="datadiv"><!--//<table><tbody id='datatbody2'></tbody></table>//--></div>
 <div id="mapdiv"></div>
 
 <script>
@@ -91,6 +91,72 @@ function faddelem(etype,eparent,eid=null,eclass=null,ehtml=null) {
 
 let sqm_per_sqmi = 2589988.1103;
 
+function fsort(column,asc=true,comma=false,percent=false) {
+   if (column > 1) {fsort(1);};
+   var tb = document.getElementById('datatbody');
+   var ary = Array.from(tb.children);
+   ary.sort(function(a, b) {
+      var val_a = a.children[column].innerHTML;
+      var val_b = b.children[column].innerHTML;
+      if (comma) {
+         val_a = fnocomma(val_a);
+         val_b = fnocomma(val_b);
+      };
+      if (percent) {
+         val_a = fnopercent(val_a);
+         val_b = fnopercent(val_b);
+      };
+      return asc?(val_a-val_b):(val_b-val_a);
+   });
+   ary.forEach(function(ele) {
+      tb.appendChild(ele);
+   });
+};
+
+/*
+function fdatatablehdr(headerdone,thead,headers) {
+   if (headerdone) { return true; };
+   var hrow = faddelem('tr',thead);
+   faddelem('th',hrow,'datahdr_precinct',null,'');
+   faddelem('th',hrow,'datahdr_precinct',null,'Precinct');
+   for (i=0;i<headers.length;i++) {
+      faddelem('th',hrow,null,'tar',headers[i]);
+   };
+   return true;
+};
+*/
+
+function flayerhighlight(row,highlight=true) {
+   var pct = row.childNodes[1].innerHTML;
+   for (i in lracelayer._layers) {
+      layer = lracelayer._layers[i];
+      if (layer._polygonId === pct) {
+         if (highlight) {
+            layer.setStyle(polygonstyle.highlight);
+            row.style.background='white';
+         }
+         else {
+            layer.setStyle(polygonstyle.unhighlight);
+            row.style.background='whitesmoke';
+         };
+         break;
+      };
+   };
+};
+
+function fdatatablerow(tbody,cbstyle,precinct,values) {
+   var brow = faddelem('tr',tbody,'tr'+precinct);
+   var colorbox = faddelem('td',brow,null,null,'&nbsp;');
+   colorbox.style.background = cbstyle.fillColor;
+   colorbox.style.opacity = cbstyle.fillOpacity;
+   faddelem('td',brow,null,null,precinct);
+   for (i=0;i<values.length;i++) {
+      faddelem('td',brow,null,'tar',values[i]);
+   };
+   brow.addEventListener('mouseover', function() { flayerhighlight(this) } );
+   brow.addEventListener('mouseout', function() { flayerhighlight(this,false) });
+};
+
 function fdatatable(racedata) {
    var data = document.getElementById('data');
    if (data) { data.remove(); };
@@ -98,8 +164,9 @@ function fdatatable(racedata) {
    data = faddelem('table',datadiv,'data');
    var thead = faddelem('thead',data);
    var hrow = faddelem('tr',thead);
-   var tbody = faddelem('tbody',data);
+   faddelem('th',hrow,'datahdr_precinct',null,'');
    faddelem('th',hrow,'datahdr_precinct',null,'Precinct');
+   var tbody = faddelem('tbody',data,'datatbody');
    var headerdone = false;
    var ch_r = -1;
    var ch_d = -1;
@@ -107,6 +174,7 @@ function fdatatable(racedata) {
       let precinct = racedata[p].properties;
       let er = precinct.election_results;
       if (er) {
+         var pstyle = fpolygonstyle(racedata[p]);
          if (fismaptype('wbp')) {
             if (!headerdone) {
                headerdone = true;
@@ -114,71 +182,78 @@ function fdatatable(racedata) {
                   faddelem('th',hrow,'datahdr_ch'+c,'tar',er.choices[c]);
                };
             };
-            var brow = faddelem('tr',tbody);
-            faddelem('td',brow,null,null,precinct.PRECINCT);
-            for (c=0;c<er.bc.ch.length;c++) {
-               faddelem('td',brow,null,'tar',er.bc.ch[c]);
-            };
+            var valuesary = [];
+            for (c=0;c<er.bc.ch.length;c++) { valuesary.push(er.bc.ch[c]); };
+            fdatatablerow(tbody,pstyle,precinct.PRECINCT,valuesary);
          }
          else if (fismaptypes(['rv','rvd','pt'])) {
             if (!headerdone) {
                headerdone = true;
-               faddelem('th',hrow,'datahdr_ch'+c,'tar','% Turnout');
-               faddelem('th',hrow,'datahdr_ch'+c,'tar','Registered Voters');
-               faddelem('th',hrow,'datahdr_ch'+c,'tar','Registered Voters per Sq. Mi.');
+               faddelem('th',hrow,'datahdr_pt','tar','% Turnout');
+               faddelem('th',hrow,'datahdr_rv','tar','Registered Voters');
+               faddelem('th',hrow,'datahdr_rvd','tar','Registered Voters per Sq. Mi.');
             };
-            var brow = faddelem('tr',tbody);
-            faddelem('td',brow,null,null,precinct.PRECINCT);
-            faddelem('td',brow,null,'tar',er.pt);
-            faddelem('td',brow,null,'tar',er.rv);
-            faddelem('td',brow,null,'tar',(fnocomma(er.rv)/precinct.Shapearea*sqm_per_sqmi).toFixed(2));
+            fdatatablerow(tbody,pstyle,precinct.PRECINCT,[
+               er.pt,
+               er.rv,
+               (fnocomma(er.rv)/precinct.Shapearea*sqm_per_sqmi).toFixed(2),
+            ]);
          }
          else if (fismaptypes(['bc','bcd'])) {
             if (!headerdone) {
                headerdone = true;
-               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast (Early)');
-               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast (Election Day)');
-               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast (Total)');
-               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast per Sq. Mi.');
+               faddelem('th',hrow,'datahdr_bc_ea','tar','Ballots Cast (Early)');
+               faddelem('th',hrow,'datahdr_bc_ed','tar','Ballots Cast (Election Day)');
+               faddelem('th',hrow,'datahdr_bc_to','tar','Ballots Cast (Total)');
+               faddelem('th',hrow,'datahdr_bcd','tar','Ballots Cast per Sq. Mi.');
             };
-            var brow = faddelem('tr',tbody);
-            faddelem('td',brow,null,null,precinct.PRECINCT);
-            faddelem('td',brow,null,'tar',er.bc.ea);
-            faddelem('td',brow,null,'tar',er.bc.ed);
-            faddelem('td',brow,null,'tar',er.bc.to);
-            faddelem('td',brow,null,'tar',(fnocomma(er.bc.to)/precinct.Shapearea*sqm_per_sqmi).toFixed(2));
+            fdatatablerow(tbody,pstyle,precinct.PRECINCT,[
+               er.bc.ea,
+               er.bc.ed,
+               er.bc.to,
+               (fnocomma(er.bc.to)/precinct.Shapearea*sqm_per_sqmi).toFixed(2),
+            ]);
          }
          else if (fismaptypes(['bc_r','bcd_r','bc_d','bcd_d'])) {
             if (!headerdone) {
                headerdone = true;
-               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast (REP)');
-               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast per Sq. Mi. (REP)');
-               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast (DEM)');
-               faddelem('th',hrow,'datahdr_ch'+c,'tar','Ballots Cast per Sq. Mi. (DEM)');
+               faddelem('th',hrow,'datahdr_bc_r','tar','Ballots Cast (REP)');
+               faddelem('th',hrow,'datahdr_bcd_r','tar','Ballots Cast per Sq. Mi. (REP)');
+               faddelem('th',hrow,'datahdr_bc_d','tar','Ballots Cast (DEM)');
+               faddelem('th',hrow,'datahdr_bcd_d','tar','Ballots Cast per Sq. Mi. (DEM)');
                for (c=0;c<er.choices.length;c++) {
                   var choice = er.choices[c].substring(0,3);
                   if (choice==='REP') { ch_r=c; };
                   if (choice==='DEM') { ch_d=c; };
                };
             };
-            var brow = faddelem('tr',tbody);
-            faddelem('td',brow,null,null,precinct.PRECINCT);
-            faddelem('td',brow,null,'tar',(ch_r<0)?'N/A':er.bc.ch[ch_r]);
-            faddelem('td',brow,null,'tar',(ch_r<0)?'N/A':(fnocomma(er.bc.ch[ch_r])/precinct.Shapearea*sqm_per_sqmi).toFixed(2));
-            faddelem('td',brow,null,'tar',(ch_d<0)?'N/A':er.bc.ch[ch_d]);
-            faddelem('td',brow,null,'tar',(ch_d<0)?'N/A':(fnocomma(er.bc.ch[ch_d])/precinct.Shapearea*sqm_per_sqmi).toFixed(2));
+            fdatatablerow(tbody,pstyle,precinct.PRECINCT,[
+               (ch_r<0)?'N/A':er.bc.ch[ch_r],
+               (ch_r<0)?'N/A':(fnocomma(er.bc.ch[ch_r])/precinct.Shapearea*sqm_per_sqmi).toFixed(2),
+               (ch_d<0)?'N/A':er.bc.ch[ch_d],
+               (ch_d<0)?'N/A':(fnocomma(er.bc.ch[ch_d])/precinct.Shapearea*sqm_per_sqmi).toFixed(2),
+            ]);
          };
       };
    };
+   if (fismaptype('pt')) { fsort(2,false,false,true); }
+   else if (fismaptype('rv')) { fsort(3,false,true); }
+   else if (fismaptype('rvd')) { fsort(4,false,true); }
+   else if (fismaptype('bc')) { fsort(4,false,true); }
+   else if (fismaptype('bcd')) { fsort(5,false,true); }
+   else if (fismaptype('bc_r')) { fsort(2,false,true); }
+   else if (fismaptype('bcd_r')) { fsort(3,false,true); }
+   else if (fismaptype('bc_d')) { fsort(4,false,true); }
+   else if (fismaptype('bcd_d')) { fsort(5,false,true); }
+   else { fsort(1); };
 };
-
-
 
 function fgetaboverange() {
    var midpoint=0.5;
    var range=document.getElementById('midrange').value*1;
    return midpoint+range;
 };
+
 function fgetrace() { return document.getElementById('races').value; };
 function fgetmaptype() { return document.getElementById('maptype').value; };
 function fismaptype(type) { return fgetmaptype()===type; };
@@ -219,29 +294,24 @@ function felecresults(pobj,robj,race) {
    return pobj;
 };
 
-// this is a general function to style polygons (default style)
-function polygonstyle(feature) {
-   return {
-      fillColor: 'darkgray',
-      weight: 1,
-      opacity: 0.55,
-      color: 'darkgray',
-      fillOpacity: 0.55,
-      smoothFactor: 0.0
-   };
-};
+
+fracelist(document.getElementById("races"),election_results.races);
 
 // this is a general function to add interactive actions (interactions) to the feature polygons:
 // 1. popup text on click
 // 2. increase polygon opacity and use yellow border when moused over
 // 3. reset polygon opacity and border when moused out
-function finteract(feature,layer) {
+function foneachfeature(feature,layer) {
    var popupary = [];
    var popupstr = '';
    let fp = feature.properties;
    if (fp) {
       popupary.push({label:'🏛️'});
-      if (fp.PRECINCT) { popupary.push({label:'voting precinct',value:fp.PRECINCT}); };
+      if (fp.PRECINCT) {
+         popupary.push({label:'voting precinct',value:fp.PRECINCT});
+         layer._polygonId = fp.PRECINCT;
+         //layer.bindTooltip(fp.PRECINCT);
+      };
       var er = fp.election_results;
       if (er) {
 /*
@@ -272,26 +342,45 @@ function finteract(feature,layer) {
    };
    layer.bindPopup(popupstr);
    layer.on('mouseover', function () {
-      this.setStyle({
-         color: 'yellow',
-         fillOpacity: 0.75
-      });
+      this.setStyle(polygonstyle.highlight);
+      var tr = L.DomUtil.get('tr'+this._polygonId);
+      tr.style.background='white';
    });
    layer.on('mouseout', function () {
-      this.setStyle({
-         color: 'darkgray',
-         fillOpacity: 0.55
-      });
+      this.setStyle(polygonstyle.unhighlight);
+      var tr = L.DomUtil.get('tr'+this._polygonId);
+      tr.style.background='whitesmoke';
    });
 /*
    layer.on('click', function () {
    window.location = feature.properties.url;
    });
 */
+
+/*
+//https://stackoverflow.com/questions/32971673/how-do-you-make-a-highlighted-outline-appear-in-leaflet-js-on-mouseover-and-by-h
+//https://gis.stackexchange.com/questions/102947/leaflet-highlight-feature-by-id
+   var tbody = L.DomUtil.get('datatbody2');
+   var tr = L.DomUtil.create('tr','item',tbody);
+   var td0 = L.DomUtil.create('td',null,tbody);
+   var td1 = L.DomUtil.create('td','.tar',tbody);
+   var td2 = L.DomUtil.create('td','.tar',tbody);
+   var td3 = L.DomUtil.create('td','.tar',tbody);
+
+   td0.textContent = layer._polygonId;
+   td1.textContent = '1';
+   td2.textContent = '2';
+   td3.textContent = '3';
+
+   var pstyle = fpolygonstyle(feature);
+   td0.style.background = pstyle.fillColor;
+   //td0.style.opacity = polygonstyle.default.fillOpacity;
+*/
+
 };
 
 // create main map, and center default view on Harris County
-var mainmap = L.map('mapdiv').setView([29.825, -95.435], 10);
+var mainmap = L.map('mapdiv').setView([29.825,-95.435],10);
 
 // add layers 
 // here are some XYZ map tile layers for base maps
@@ -339,9 +428,111 @@ function fracelist(divr,races) {
 
 function frgb(r,g,b) { return 'rgb('+r+','+g+','+b+')'; };
 function fnocomma(str) { return str.replace(/,/g,''); };
+function fnopercent(str) { return str.replace(/%/g,''); };
 
-function fracelayer(race=null) {
-   race = race ? race : fgetrace();
+// define general polygon styling
+var polygonstyle = {
+   default: {
+      fillColor: 'darkgray',
+      weight: 1,
+      opacity: 0.55,
+      color: 'darkgray',
+      fillOpacity: 0.55,
+      smoothFactor: 0.0
+   },
+   highlight: {
+      color: 'yellow',
+      fillOpacity: 0.75
+   },
+   unhighlight: {
+      color: 'darkgray',
+      fillOpacity: 0.55
+   }
+};
+
+function fpolygonstyle(feature,aboverange=fgetaboverange()) {
+   let pstyle = polygonstyle.default;
+   let er = feature.properties.election_results;
+   var race_nonpartisan = false;
+   var race_for_against = false;
+   var vote_np = 0; // nonpartisan votes
+   var vote_mp = 0; // major party votes
+   var vote_r = 0;
+   var vote_d = 0;
+   var vote_y = 0;
+   var vote_n = 0;
+   var vote_total = 0;
+   var pctturnout = 0;
+   var regvoters = 0;
+   var rvdensity = 0;
+   var ballotscast = 0; // might differ from vote_total if there are write-in candidates
+   var bcdensity = 0;
+   var bcdensity_r = 0;
+   var bcdensity_d = 0;
+   let pareami = feature.properties.Shapearea/sqm_per_sqmi;
+
+   if (er) {
+/*
+      for (c=0;c<er.ballots_cast.choices.length;c++) {
+         var choice = er.choices[c].substring(0,3);
+         var votes = fnocomma(er.ballots_cast.choices[c])*1;
+*/
+      for (c=0;c<er.bc.ch.length;c++) {
+         var choice = er.choices[c].substring(0,3);
+         var votes = fnocomma(er.bc.ch[c])*1;
+         if (['FOR','YES'].includes(choice)) {vote_y = votes}
+         else if (['AGA','NO'].includes(choice)) {vote_n = votes}
+         else if (choice==='REP') {vote_r = votes}
+         else if (choice==='DEM') {vote_d = votes}
+         else if (['IND','LIB'].includes(choice)) {}
+         else { vote_np+=1 };
+         vote_total += votes;
+      };
+      if (fismaptype('pt')) {pctturnout=er.pt.replace('%','')/100;} 
+      else if (fismaptype('rv')) {regvoters=fnocomma(er.rv)*1;}
+      else if (fismaptype('rvd')) {rvdensity=fnocomma(er.rv)/pareami;}
+      else if (fismaptype('bc')) {ballotscast=fnocomma(er.bc.to);}
+      else if (fismaptype('bcd')) {bcdensity=fnocomma(er.bc.to)/pareami;} 
+      else if (fismaptype('bcd_r')) {bcdensity_r=vote_r/pareami;} 
+      else if (fismaptype('bcd_d')) {bcdensity_d=vote_d/pareami;}
+
+      vote_mp = vote_r+vote_d;
+/*
+      race_nonpartisan = vote_np===er.ballots_cast.choices.length;
+*/
+      race_nonpartisan = vote_np===er.bc.ch.length;
+      race_for_against = vote_y+vote_n>0;
+   };
+   pstyle.fillColor = !er ? 'none'
+      :fismaptype('rv')?(regvoters===0?'darkgray':frgb( (regvoters/7500*255) , (regvoters/7500*255) , ((1-(regvoters/7500))*64) ))
+      :fismaptype('rvd')?(rvdensity===0?'darkgray':frgb( (rvdensity/750*255) , (rvdensity/750*255) , ((1-(rvdensity/750))*64) ))
+      :vote_total===0?'darkgray'
+//      :fismaptype('pt')?frgb( pctturnout*255 , pctturnout*255 , 0 )
+      :fismaptype('pt')?frgb( (pctturnout<0.5?0:((pctturnout-0.5)/0.5*255)) , pctturnout*255 , (pctturnout<0.5?((pctturnout)/0.5*255):((1-pctturnout)/0.5*255)) )
+      :fismaptype('bc')?frgb( (ballotscast/4000*255) , ((1-(ballotscast/4000))*64) , (ballotscast/4000*255) )
+      :fismaptype('bcd')?frgb( (bcdensity/400*255) , ((1-(bcdensity/400))*64) , +(bcdensity/400*255) )
+      :fismaptype('bc_r')?(race_for_against||race_nonpartisan?'darkgray':frgb( +(vote_r/1500*255) , ((1-(vote_r/1500))*64) , ((1-(vote_r/1500))*64) )) 
+      :fismaptype('bcd_r')?(race_for_against||race_nonpartisan?'darkgray':frgb( (bcdensity_r/150*255) , ((1-(bcdensity_r/150))*64) , ((1-(bcdensity_r/150))*64) )) 
+      :fismaptype('bc_d')?(race_for_against||race_nonpartisan?'darkgray':frgb( ((1-(vote_d/1500))*64) , ((1-(vote_d/1500))*64) , (vote_d/1500*255) )) 
+      :fismaptype('bcd_d')?(race_for_against||race_nonpartisan?'darkgray':frgb( ((1-(bcdensity_d/150))*64) , ((1-(bcdensity_d/150))*64) , (bcdensity_d/150*255) )) 
+      :fismaptype('sp')?'darkgray' // unhandled
+      //fismaptype('wbp') from this point
+      :race_nonpartisan?'orange'
+      :(race_for_against&&aboverange>=1.0)?frgb( (vote_n/vote_total>0.5?255:(vote_n/vote_total*2*255)) , (vote_y/vote_total>0.5?255:(vote_y/vote_total*2*255)) , 0 )
+      :(race_for_against&&aboverange<=0.0)?frgb( (vote_n/vote_total>0.5?255:(vote_n/vote_total*2*255)) , (vote_y/vote_total>0.5?255:(vote_y/vote_total*2*255)) , (vote_y/vote_total>0.5?(vote_n/vote_total*2*255):(vote_y/vote_total*2*255)) )
+      :vote_y/vote_total>aboverange?'green'
+      :vote_n/vote_total>aboverange?'red'
+      :race_for_against?'yellow'
+      :vote_total-vote_mp>vote_mp?'goldenrod'
+      :aboverange>=1.0?'rgb('+vote_r/vote_mp*255+',0,'+vote_d/vote_mp*255+')'
+      :aboverange<=0.0?'rgb('+(vote_r/vote_mp>0.5?255:(vote_r/vote_mp*2*255))+','+(vote_d/vote_mp>0.5?(vote_r/vote_mp*2*255):(vote_d/vote_mp*2*255))+','+(vote_d/vote_mp>0.5?255:(vote_d/vote_mp*2*255))+')'
+      :vote_r/vote_mp>aboverange?'red'
+      :vote_d/vote_mp>aboverange?'blue'
+      :'purple';
+   return pstyle;
+};
+
+function fracelayer(race=fgetrace()) {
    var aboverange = fgetaboverange();
    lracedata = felecresults(harris_county_voting_precincts.features,election_results,race);
    if (lracelayer) {
@@ -350,96 +541,15 @@ function fracelayer(race=null) {
    };
    lracelayer = L.geoJSON(harris_county_voting_precincts,{
       attribution:'Harris County Commissioners Court and Harris County Tax Office',
-      style: function (feature) {
-         let pstyle = polygonstyle(feature);
-         let er = feature.properties.election_results;
-         var race_nonpartisan = false;
-         var race_for_against = false;
-         var vote_np = 0; // nonpartisan votes
-         var vote_mp = 0; // major party votes
-         var vote_r = 0;
-         var vote_d = 0;
-         var vote_y = 0;
-         var vote_n = 0;
-         var vote_total = 0;
-         var pctturnout = 0;
-         var regvoters = 0;
-         var rvdensity = 0;
-         var ballotscast = 0; // might differ from vote_total if there are write-in candidates
-         var bcdensity = 0;
-         var bcdensity_r = 0;
-         var bcdensity_d = 0;
-         let pareami = feature.properties.Shapearea/sqm_per_sqmi;
-
-         if (er) {
-/*
-            for (c=0;c<er.ballots_cast.choices.length;c++) {
-               var choice = er.choices[c].substring(0,3);
-               var votes = fnocomma(er.ballots_cast.choices[c])*1;
-*/
-            for (c=0;c<er.bc.ch.length;c++) {
-               var choice = er.choices[c].substring(0,3);
-               var votes = fnocomma(er.bc.ch[c])*1;
-               if (['FOR','YES'].includes(choice)) {vote_y = votes}
-               else if (['AGA','NO'].includes(choice)) {vote_n = votes}
-               else if (choice==='REP') {vote_r = votes}
-               else if (choice==='DEM') {vote_d = votes}
-               else if (['IND','LIB'].includes(choice)) {}
-               else { vote_np+=1 };
-               vote_total += votes;
-            };
-            if (fismaptype('pt')) {pctturnout=er.pt.replace('%','')/100;} 
-            else if (fismaptype('rv')) {regvoters=fnocomma(er.rv)*1;}
-            else if (fismaptype('rvd')) {rvdensity=fnocomma(er.rv)/pareami;}
-            else if (fismaptype('bc')) {ballotscast=fnocomma(er.bc.to);}
-            else if (fismaptype('bcd')) {bcdensity=fnocomma(er.bc.to)/pareami;} 
-            else if (fismaptype('bcd_r')) {bcdensity_r=vote_r/pareami;} 
-            else if (fismaptype('bcd_d')) {bcdensity_d=vote_d/pareami;}
-
-            vote_mp = vote_r+vote_d;
-/*
-            race_nonpartisan = vote_np===er.ballots_cast.choices.length;
-*/
-            race_nonpartisan = vote_np===er.bc.ch.length;
-            race_for_against = vote_y+vote_n>0;
-         };
-         pstyle.fillColor = !er ? 'none'
-            :fismaptype('rv')?(regvoters===0?'darkgray':frgb( (regvoters/7500*255) , (regvoters/7500*255) , ((1-(regvoters/7500))*64) ))
-            :fismaptype('rvd')?(rvdensity===0?'darkgray':frgb( (rvdensity/750*255) , (rvdensity/750*255) , ((1-(rvdensity/750))*64) ))
-            :vote_total===0?'darkgray'
-//            :fismaptype('pt')?frgb( pctturnout*255 , pctturnout*255 , 0 )
-            :fismaptype('pt')?frgb( (pctturnout<0.5?0:((pctturnout-0.5)/0.5*255)) , pctturnout*255 , (pctturnout<0.5?((pctturnout)/0.5*255):((1-pctturnout)/0.5*255)) )
-            :fismaptype('bc')?frgb( (ballotscast/4000*255) , ((1-(ballotscast/4000))*64) , (ballotscast/4000*255) )
-            :fismaptype('bcd')?frgb( (bcdensity/400*255) , ((1-(bcdensity/400))*64) , +(bcdensity/400*255) )
-            :fismaptype('bc_r')?(race_for_against||race_nonpartisan?'darkgray':frgb( +(vote_r/1500*255) , ((1-(vote_r/1500))*64) , ((1-(vote_r/1500))*64) )) 
-            :fismaptype('bcd_r')?(race_for_against||race_nonpartisan?'darkgray':frgb( (bcdensity_r/150*255) , ((1-(bcdensity_r/150))*64) , ((1-(bcdensity_r/150))*64) )) 
-            :fismaptype('bc_d')?(race_for_against||race_nonpartisan?'darkgray':frgb( ((1-(vote_d/1500))*64) , ((1-(vote_d/1500))*64) , (vote_d/1500*255) )) 
-            :fismaptype('bcd_d')?(race_for_against||race_nonpartisan?'darkgray':frgb( ((1-(bcdensity_d/150))*64) , ((1-(bcdensity_d/150))*64) , (bcdensity_d/150*255) )) 
-            :fismaptype('sp')?'darkgray' // unhandled
-            //fismaptype('wbp') from this point
-            :race_nonpartisan?'orange'
-            :(race_for_against&&aboverange>=1.0)?frgb( (vote_n/vote_total>0.5?255:(vote_n/vote_total*2*255)) , (vote_y/vote_total>0.5?255:(vote_y/vote_total*2*255)) , 0 )
-            :(race_for_against&&aboverange<=0.0)?frgb( (vote_n/vote_total>0.5?255:(vote_n/vote_total*2*255)) , (vote_y/vote_total>0.5?255:(vote_y/vote_total*2*255)) , (vote_y/vote_total>0.5?(vote_n/vote_total*2*255):(vote_y/vote_total*2*255)) )
-            :vote_y/vote_total>aboverange?'green'
-            :vote_n/vote_total>aboverange?'red'
-            :race_for_against?'yellow'
-            :vote_total-vote_mp>vote_mp?'goldenrod'
-            :aboverange>=1.0?'rgb('+vote_r/vote_mp*255+',0,'+vote_d/vote_mp*255+')'
-            :aboverange<=0.0?'rgb('+(vote_r/vote_mp>0.5?255:(vote_r/vote_mp*2*255))+','+(vote_d/vote_mp>0.5?(vote_r/vote_mp*2*255):(vote_d/vote_mp*2*255))+','+(vote_d/vote_mp>0.5?255:(vote_d/vote_mp*2*255))+')'
-            :vote_r/vote_mp>aboverange?'red'
-            :vote_d/vote_mp>aboverange?'blue'
-            :'purple';
-         return pstyle;
-      },
-      onEachFeature:finteract
+      style: function(feature) { return fpolygonstyle(feature); },
+      onEachFeature:foneachfeature
    });
    lracelayer.addTo(mainmap);
    fdatatable(lracedata);
+   return lracelayer
 };
 
-
-fracelist(document.getElementById("races"),election_results.races);
-fracelayer();
+var lracelayer = fracelayer();
 </script>
 
 </body>
