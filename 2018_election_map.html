@@ -8,6 +8,7 @@
 #mapdiv { height:100vh; width:1000px; position:absolute; top:0px; left:380px; }
 #races { overflow-y:auto; overflow-x:auto; width:320px; }
 .tar { text-align:right; }
+.tac { text-align:center; }
 body { margin:0px; border:0px; background:whitesmoke; font:10pt Sans-serif; }
 h2 { margin:0px; border:0px; font-size:12pt; }
 form { font-size:10pt; margin:10px 0px; }
@@ -23,9 +24,9 @@ td { opacity:1; }
 
 <script>
 function fmapresize() {
-   md = document.getElementById('mapdiv');
-   sd = document.getElementById('seldiv');
-   dd = document.getElementById('datadiv');
+   var md = document.getElementById('mapdiv');
+   var sd = document.getElementById('seldiv');
+   var dd = document.getElementById('datadiv');
    md.style.width=(window.innerWidth-sd.offsetWidth)+'px';
    md.style.left=sd.offsetWidth+'px';
    dd.style.height=(window.innerHeight-sd.offsetHeight-20)+'px';
@@ -71,8 +72,7 @@ Middle (Tie) Value:
 <option value='0.30'>50% &plusmn30%</option>
 <option value='0.50'>Gradient (mix)</option>
 <option value='-0.50'>Gradient (white)</option>
-</select><br />
-Show Results Table: <input type="checkbox" name="showresultstable" id="showresultstable"/ >
+</select>
 </form>
 </div>
 <div id="datadiv"><!--//<table><tbody id='datatbody2'></tbody></table>//--></div>
@@ -91,26 +91,55 @@ function faddelem(etype,eparent,eid=null,eclass=null,ehtml=null) {
 
 let sqm_per_sqmi = 2589988.1103;
 
-function fsort(column,asc=true,comma=false,percent=false) {
-   if (column > 1) {fsort(1);};
+function fsortbase(columnNo,asc=true,comma=false,percent=false) {
+   if (columnNo > 1) {fsortbase(1);}; // before sorting by any other column, sort by precinct first
    var tb = document.getElementById('datatbody');
    var ary = Array.from(tb.children);
    ary.sort(function(a, b) {
-      var val_a = a.children[column].innerHTML;
-      var val_b = b.children[column].innerHTML;
+      var val_a = a.children[columnNo].innerHTML;
+      var val_b = b.children[columnNo].innerHTML;
       if (comma) {
          val_a = fnocomma(val_a);
          val_b = fnocomma(val_b);
       };
       if (percent) {
-         val_a = fnopercent(val_a);
-         val_b = fnopercent(val_b);
+         val_a = fnopercent(val_a)==='N/A'?-1:fnopercent(val_a);
+         val_b = fnopercent(val_b)==='N/A'?-1:fnopercent(val_b);
       };
       return asc?(val_a-val_b):(val_b-val_a);
    });
    ary.forEach(function(ele) {
       tb.appendChild(ele);
    });
+};
+
+function fsortcolumn(headerObject,comma=false,percent=false,defaultasc=null) {
+   var header = headerObject;
+   var hrow = headerObject.parentElement;
+   var columnNo = 0;
+   for (i=1;i<hrow.childNodes.length;i++) { // start at index 1, since index 0 (the color box) is not sortable
+      // first clear any existing sort order indicators
+      var text = hrow.childNodes[i].innerText;
+      var prevSort = text.charAt(text.length-1)==='▴' ? 'asc'
+         : text.charAt(text.length-1)==='▾' ? 'desc'
+         : 'none';
+      if (prevSort!=='none') {
+         text = text.substring(0,text.length-1);
+         hrow.childNodes[i].innerText = text;
+      };
+      // if the column is the one to sort on, then sort it and add a sort order indicator .
+      if (headerObject===hrow.childNodes[i]) {
+         if ((prevSort==='asc'&&defaultasc===null)||(defaultasc===false)) {
+            fsortbase(i,false,comma,percent);
+            text+='▾';
+         }
+         else {
+            fsortbase(i,true,comma,percent);
+            text+='▴';
+         };
+         headerObject.innerText = text;
+      };
+   };
 };
 
 /*
@@ -143,6 +172,16 @@ function flayerhighlight(row,highlight=true) {
       };
    };
 };
+function flayerpopup(row) {
+   var pct = row.childNodes[1].innerHTML;
+   for (i in lracelayer._layers) {
+      layer = lracelayer._layers[i];
+      if (layer._polygonId === pct) {
+         layer.openPopup();
+         break;
+      };
+   };
+};
 
 function fdatatablerow(tbody,cbstyle,precinct,values) {
    var brow = faddelem('tr',tbody,'tr'+precinct);
@@ -155,6 +194,12 @@ function fdatatablerow(tbody,cbstyle,precinct,values) {
    };
    brow.addEventListener('mouseover', function() { flayerhighlight(this) } );
    brow.addEventListener('mouseout', function() { flayerhighlight(this,false) });
+   brow.addEventListener('click', function() { flayerpopup(this) });
+};
+
+function fdatahdrwsort(hrow,eid=null,eclass=null,ehtml=null,comma=false,percent=false,defaultasc=null) {
+   faddelem('th',hrow,eid,eclass,ehtml)
+   .addEventListener('click', function() { fsortcolumn(this,comma,percent,defaultasc) } );
 };
 
 function fdatatable(racedata) {
@@ -163,9 +208,6 @@ function fdatatable(racedata) {
    var datadiv = document.getElementById('datadiv');
    data = faddelem('table',datadiv,'data');
    var thead = faddelem('thead',data);
-   var hrow = faddelem('tr',thead);
-   faddelem('th',hrow,'datahdr_precinct',null,'');
-   faddelem('th',hrow,'datahdr_precinct',null,'Precinct');
    var tbody = faddelem('tbody',data,'datatbody');
    var headerdone = false;
    var ch_r = -1;
@@ -178,20 +220,36 @@ function fdatatable(racedata) {
          if (fismaptype('wbp')) {
             if (!headerdone) {
                headerdone = true;
+               var hrow = faddelem('tr',thead);
+               var hrow2 = faddelem('tr',thead);
+               faddelem('th',hrow,null,null,'');
+               faddelem('th',hrow2,'datahdr_colorbox',null,'');
+               faddelem('th',hrow,null,null,'');
+               fdatahdrwsort(hrow2,'datahdr_precinct',null,'Precinct');
                for (c=0;c<er.choices.length;c++) {
-                  faddelem('th',hrow,'datahdr_ch'+c,'tar',er.choices[c]);
+                  var th = faddelem('th',hrow,'datahdr_ch'+c,'tac',er.choices[c]);
+                  th.colSpan=2;
+                  fdatahdrwsort(hrow2,'datahdr_chv'+c,'tar','#',true);
+                  fdatahdrwsort(hrow2,'datahdr_chp'+c,'tar','%',false,true);
                };
             };
             var valuesary = [];
-            for (c=0;c<er.bc.ch.length;c++) { valuesary.push(er.bc.ch[c]); };
+            for (c=0;c<er.bc.ch.length;c++) {
+               valuesary.push(er.bc.ch[c]);
+               var percent = (fnocomma(er.bc.ch[c])/fnocomma(er.bc.to)*100).toFixed(1);
+               valuesary.push(percent==='NaN'?'N/A':percent+'%');
+            };
             fdatatablerow(tbody,pstyle,precinct.PRECINCT,valuesary);
          }
          else if (fismaptypes(['rv','rvd','pt'])) {
             if (!headerdone) {
                headerdone = true;
-               faddelem('th',hrow,'datahdr_pt','tar','% Turnout');
-               faddelem('th',hrow,'datahdr_rv','tar','Registered Voters');
-               faddelem('th',hrow,'datahdr_rvd','tar','Registered Voters per Sq. Mi.');
+               var hrow = faddelem('tr',thead);
+               faddelem('th',hrow,'datahdr_colorbox',null,'');
+               fdatahdrwsort(hrow,'datahdr_precinct',null,'Precinct');
+               fdatahdrwsort(hrow,'datahdr_pt','tar','% Turnout',false,true);
+               fdatahdrwsort(hrow,'datahdr_rv','tar','Registered Voters',true);
+               fdatahdrwsort(hrow,'datahdr_rvd','tar','Registered Voters per Sq. Mi.',true);
             };
             fdatatablerow(tbody,pstyle,precinct.PRECINCT,[
                er.pt,
@@ -202,10 +260,13 @@ function fdatatable(racedata) {
          else if (fismaptypes(['bc','bcd'])) {
             if (!headerdone) {
                headerdone = true;
-               faddelem('th',hrow,'datahdr_bc_ea','tar','Ballots Cast (Early)');
-               faddelem('th',hrow,'datahdr_bc_ed','tar','Ballots Cast (Election Day)');
-               faddelem('th',hrow,'datahdr_bc_to','tar','Ballots Cast (Total)');
-               faddelem('th',hrow,'datahdr_bcd','tar','Ballots Cast per Sq. Mi.');
+               var hrow = faddelem('tr',thead);
+               faddelem('th',hrow,'datahdr_colorbox',null,'');
+               fdatahdrwsort(hrow,'datahdr_precinct',null,'Precinct');
+               fdatahdrwsort(hrow,'datahdr_bc_ea','tar','Ballots Cast (Early)',true);
+               fdatahdrwsort(hrow,'datahdr_bc_ed','tar','Ballots Cast (Election Day)',true);
+               fdatahdrwsort(hrow,'datahdr_bc_to','tar','Ballots Cast (Total)',true);
+               fdatahdrwsort(hrow,'datahdr_bcd','tar','Ballots Cast per Sq. Mi.',true);
             };
             fdatatablerow(tbody,pstyle,precinct.PRECINCT,[
                er.bc.ea,
@@ -217,10 +278,13 @@ function fdatatable(racedata) {
          else if (fismaptypes(['bc_r','bcd_r','bc_d','bcd_d'])) {
             if (!headerdone) {
                headerdone = true;
-               faddelem('th',hrow,'datahdr_bc_r','tar','Ballots Cast (REP)');
-               faddelem('th',hrow,'datahdr_bcd_r','tar','Ballots Cast per Sq. Mi. (REP)');
-               faddelem('th',hrow,'datahdr_bc_d','tar','Ballots Cast (DEM)');
-               faddelem('th',hrow,'datahdr_bcd_d','tar','Ballots Cast per Sq. Mi. (DEM)');
+               var hrow = faddelem('tr',thead);
+               faddelem('th',hrow,'datahdr_colorbox',null,'');
+               fdatahdrwsort(hrow,'datahdr_precinct',null,'Precinct');
+               fdatahdrwsort(hrow,'datahdr_bc_r','tar','Ballots Cast (REP)',true);
+               fdatahdrwsort(hrow,'datahdr_bcd_r','tar','Ballots Cast per Sq. Mi. (REP)',true);
+               fdatahdrwsort(hrow,'datahdr_bc_d','tar','Ballots Cast (DEM)',true);
+               fdatahdrwsort(hrow,'datahdr_bcd_d','tar','Ballots Cast per Sq. Mi. (DEM)',true);
                for (c=0;c<er.choices.length;c++) {
                   var choice = er.choices[c].substring(0,3);
                   if (choice==='REP') { ch_r=c; };
@@ -236,16 +300,17 @@ function fdatatable(racedata) {
          };
       };
    };
-   if (fismaptype('pt')) { fsort(2,false,false,true); }
-   else if (fismaptype('rv')) { fsort(3,false,true); }
-   else if (fismaptype('rvd')) { fsort(4,false,true); }
-   else if (fismaptype('bc')) { fsort(4,false,true); }
-   else if (fismaptype('bcd')) { fsort(5,false,true); }
-   else if (fismaptype('bc_r')) { fsort(2,false,true); }
-   else if (fismaptype('bcd_r')) { fsort(3,false,true); }
-   else if (fismaptype('bc_d')) { fsort(4,false,true); }
-   else if (fismaptype('bcd_d')) { fsort(5,false,true); }
-   else { fsort(1); };
+   // do an initial sort based on map type
+   if (fismaptype('pt')) { fsortcolumn(document.getElementById('datahdr_pt'),false,true); }
+   else if (fismaptype('rv')) { fsortcolumn(document.getElementById('datahdr_rv'),true,false,false); }
+   else if (fismaptype('rvd')) { fsortcolumn(document.getElementById('datahdr_rvd'),true,false,false); }
+   else if (fismaptype('bc')) { fsortcolumn(document.getElementById('datahdr_bc_to'),true,false,false); }
+   else if (fismaptype('bcd')) { fsortcolumn(document.getElementById('datahdr_bcd'),true,false,false); }
+   else if (fismaptype('bc_r')) { fsortcolumn(document.getElementById('datahdr_bc_r'),true,false,false); }
+   else if (fismaptype('bcd_r')) { fsortcolumn(document.getElementById('datahdr_bcd_r'),true,false,false); }
+   else if (fismaptype('bc_d')) { fsortcolumn(document.getElementById('datahdr_bc_d'),true,false,false); }
+   else if (fismaptype('bcd_d')) { fsortcolumn(document.getElementById('datahdr_bcd_d'),true,false,false); }
+   else { fsortcolumn(document.getElementById('datahdr_precinct')); };
 };
 
 function fgetaboverange() {
