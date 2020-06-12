@@ -1,7 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
-<head>
 
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="description" content="Map of Harris County 2018 General Election Results" />
+<title>Map of Harris County 2018 General Election Results</title>
 <style>
 #seldiv { width:380px; position:absolute; top:0px; left:0px; padding:10px; }
 #datadiv { width:380px; position:absolute; top:0px; left:0px; padding:10px; overflow:scroll; }
@@ -21,7 +24,6 @@ td { opacity:1; }
 <script src="2018_voting_precincts.js"></script>
 <!--<script src="canvass_Nov2018_general_election_harris.js"></script>//-->
 <script src="2018_general_election_results_short.js"></script>
-
 <script>
 function fmapresize() {
    var md = document.getElementById('mapdiv');
@@ -33,7 +35,6 @@ function fmapresize() {
    dd.style.top=sd.offsetHeight+'px'
 };
 </script>
-
 </head>
 
 <body onresize="fmapresize();">
@@ -449,16 +450,20 @@ var mainmap = L.map('mapdiv').setView([29.825,-95.435],10);
 
 // add layers 
 // here are some XYZ map tile layers for base maps
-var l_stamen_toner = L.tileLayer('http://tile.stamen.com/toner/{z}/{x}/{y}.png',{maxZoom:20,attribution:'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.'});
-var l_stamen_toner_lite = L.tileLayer('http://tile.stamen.com/toner-lite/{z}/{x}/{y}.png',{maxZoom:20,attribution:'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.'}).addTo(mainmap);
-var l_stamen_terrain = L.tileLayer('http://tile.stamen.com/terrain/{z}/{x}/{y}.png',{maxZoom:20,attribution:'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.'});
+var s_stamen_copyright = 'Map tiles by <a href="https://stamen.com">Stamen Design</a>, under <a href="https://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="https://openstreetmap.org">OpenStreetMap</a>, under <a href="https://www.openstreetmap.org/copyright">ODbL</a>.'; // used for all sets except Watercolor
+var s_stamen_urlbase = 'https://stamen-tiles-{s}.a.ssl.fastly.net/';
+var l_stamen_toner = L.tileLayer(s_stamen_urlbase+'toner/{z}/{x}/{y}.png',{maxZoom:20, attribution:s_stamen_copyright});
+var l_stamen_tonerlite = L.tileLayer(s_stamen_urlbase+'toner-lite/{z}/{x}/{y}.png',{maxZoom:20, attribution:s_stamen_copyright});
+var l_stamen_terrain = L.tileLayer(s_stamen_urlbase+'terrain/{z}/{x}/{y}.jpg',{maxNativeZoom:16, attribution:s_stamen_copyright});
+var l_stamen_watercolor = L.tileLayer(s_stamen_urlbase+'watercolor/{z}/{x}/{y}.jpg',{maxZoom:20, attribution:'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="https://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="https://openstreetmap.org">OpenStreetMap</a>, under <a href="https://creativecommons.org/licenses/by-sa/3.0">CC BY SA</a>.'});
 var l_carto_voyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}' + (L.Browser.retina ? '@2x.png' : '.png'), {maxZoom: 20,subdomains: 'abcd',attribution:'&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'});
 var l_carto_light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}' + (L.Browser.retina ? '@2x.png' : '.png'), {maxZoom: 20,subdomains: 'abcd',attribution:'&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'});
 var l_carto_dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}' + (L.Browser.retina ? '@2x.png' : '.png'), {maxZoom: 20,subdomains: 'abcd',attribution:'&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'});
 
+l_stamen_tonerlite.addTo(mainmap);
 var baseMaps = {
     'Stamen Toner':l_stamen_toner,
-    'Stamen Toner Lite':l_stamen_toner_lite,
+    'Stamen Toner Lite':l_stamen_tonerlite,
     'Stamen Terrain':l_stamen_terrain,
     'Carto Voyager (non-commercial use only)':l_carto_voyager,
     'Carto Light (non-commercial use only)':l_carto_light,
