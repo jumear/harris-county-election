@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="description" content="Harris County 2020 Election Results" />
+<title>Harris County 2020 Election Results</title>
+<style>
+   body { font:10pt sans-serif; }
+   h1 { margin:0px; }
+   h2 { margin:0px; }
+   h3 { margin:0px; }
+   .divrace {margin-top:15px; }
+</style>
+<!--<script src="2018_voting_precincts.js"></script>//-->
+<script src="2020_general_election_results.js"></script>
+</head>
+<body>
+<script>
+function fcomnum(n) { return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,',') };
+function fround(num,places) { return num.toFixed(places); };
+function faddelem(etype,eparent=null,eattributes={}) {
+   var eobj = document.createElement(etype);
+   for (let [key,value] of Object.entries(eattributes)) {
+      if ( typeof value === 'object' && value !== null ) {
+         for (let [subkey,subvalue] of Object.entries(value)) { eobj[key][subkey] = subvalue; };
+      }
+      else { eobj[key] = value; };
+    };
+   if (eparent) { eparent.appendChild(eobj); };
+   return eobj;
+};
+function faddrow(celltype='td',eparent,values=[]) {
+   let tr = faddelem('tr',eparent);
+   for (v=0;v<values.length;v++) {
+      let cell = faddelem(celltype,tr,{innerHTML:values[v]});
+      if (v>0) { cell.style.textAlign='right'; };
+   };
+};
+
+let divhead = faddelem('div',document.body);
+faddelem('h1',divhead,{innerText:'2020 Election Results for Harris County, TX'});
+faddelem('h3',divhead,{innerText:'Adapted from Canvass Report dated: '+hcgenelection2020.report_date});
+faddelem('h3',divhead,{innerText:hcgenelection2020.source});
+faddelem('hr',divhead);
+faddelem('h2',divhead,{innerText:hcgenelection2020.title});
+faddelem('h3',divhead,{innerText:hcgenelection2020.subtitle});
+faddelem('h3',divhead,{innerText:hcgenelection2020.report_stat1});
+faddelem('h3',divhead,{innerText:hcgenelection2020.report_stat2});
+
+
+for (result of hcgenelection2020.results) {
+   let divrace = faddelem('div',document.body);
+
+   faddelem('h2',divrace,{classList:'divrace',innerText:result.race});
+   let table = faddelem('table',divrace);
+
+   let thead = faddelem('thead',table);
+   let headers = ['Precinct'];
+   for (d=0;d<5;d++) { headers.push(hcgenelection2020.core_columns[d]); };
+   for (choice of result.choice) { headers.push(choice.replace('/','/ ')); };
+   headers.push('Totals');
+   faddrow('th',thead,headers);
+
+   let tbody = faddelem('tbody',table);
+   let precincts = [];
+   Object.keys(result.precinct).forEach(key=>{ precincts.push([key,result.precinct[key]]); });
+   precincts.sort (function(a, b) { return a[0] - b[0]; });
+   for (precinct of precincts) {
+      let row = [precinct[0]];
+      for (d=0;d<4;d++) { row.push(fcomnum(precinct[1][d])); };
+      row.push(fround(precinct[1][4],2));
+      for (choice of precinct[1][6]) { row.push(fcomnum(choice)); };
+      row.push(fcomnum(precinct[1][5]));
+      faddrow('td',tbody,row);
+   };
+
+   let tfoot = faddelem('tfoot',table);
+   let footers = ['Totals'];
+   for (d=0;d<4;d++) { footers.push(fcomnum(result.total[d])); };
+   footers.push(null);
+   for (choice of result.total[6]) { footers.push(fcomnum(choice)); };
+   footers.push(fcomnum(result.total[5]));
+   faddrow('td',tfoot,footers);
+};
+</script>
+
+</body>
+</html>
