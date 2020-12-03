@@ -1,12 +1,12 @@
 var hcgenelection2020 = {
-title:'Canvass Report — Total Voters — Official',
-subtitle:'Harris County, Texas — Nov Live 110320 General and Special Elections — November 03, 2020',
+title:'Canvass Report - Total Voters - Official',
+subtitle:'Harris County, Texas - Nov Live 110320 General and Special Elections - November 03, 2020',
 report_date:'11/16/2020 08:18 AM',
 report_stat1:'Total Number of Voters: 1,656,686 of 2,431,457 = 68.14%',
 report_stat2:'Precincts Reporting 1,012 of 1,012 = 100.00%',
 source:'https://harrisvotes.com/HISTORY/20201103/Official%20Canvass.pdf',
 core_columns:['Early Ballots Cast','Election Ballots Cast','Total Ballots Cast','Registered Voters','Percent Turnout','Choice Totals','Choice Votes'],
-data:[
+results:[
 {race:'President and Vice President',choice:['REP Donald J. Trump/Michael R. Pence','DEM Joseph R. Biden/Kamala D. Harris','LIB Jo Jorgensen/Jeremy "Spike" Cohen','GRN Howie Hawkins/Angela Walker','President R. Boddie/Eric C. Stoneham','Jesse Cuellar/Jimmy Monreal','Tom Hoefling/Andy Prior','Gloria La Riva/Leonard Peltier','Abram Loeb/Jennifer Jairala','Robert Morrow/Anne Beckett','Kasey Wells/Rachel Wells'],total:[1452949,203737,1656686,2431457,null,1640818,[700630,918193,16819,5129,1,3,26,11,2,1,3]],precinct:{
 '0001':[2420,303,2723,3295,82.64,2697,[745,1897,46,9,0,0,0,0,0,0,0]],
 '0002':[1443,156,1599,2149,74.41,1588,[448,1093,44,3,0,0,0,0,0,0,0]],
