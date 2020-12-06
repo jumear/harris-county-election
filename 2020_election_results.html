@@ -10,9 +10,13 @@
    h1 { margin:0px; }
    h2 { margin:0px; }
    h3 { margin:0px; }
+   h4 { margin:0px; }
    .divrace { margin-top:15px; }
    tr { text-align:right; }
    .precinct { text-align:left; }
+   select { font-weight:600; font-size:12pt; background:LemonChiffon; }
+   th { vertical-align:bottom; border-bottom:1px solid black; }
+   tfoot td { border-top:1px solid black; border-bottom:3px double black; }
 </style>
 <!--<script src="2018_voting_precincts.js"></script>//-->
 <script src="2020_election_results.js"></script>
@@ -20,6 +24,7 @@
 
 <body>
 <script>
+function ffillary(beg,end) { return Array(end-beg+1).fill().map((item,idx)=>beg+idx); };
 function fcomnum(n) { return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,',') };
 function fround(num,places) { return num.toFixed(places); };
 function faddelem(etype,eparent=null,eattributes={}) {
@@ -43,39 +48,54 @@ function faddrow(celltype='td',eparent,values=[]) {
 
 let divhead = faddelem('div',document.body);
 faddelem('h1',divhead,{innerText:'2020 Election Results for Harris County, TX'});
-faddelem('h3',divhead,{innerText:'Adapted from Canvass Report dated: '+hcelection2020.report_date});
-faddelem('h3',divhead,{innerText:hcelection2020.source});
+var divsel = faddelem('h3',divhead,{innerHTML:'For: '});
 faddelem('hr',divhead);
-faddelem('h2',divhead,{innerText:hcelection2020.title});
+faddelem('h3',divhead,{innerText:'Adapted from Canvass Report dated: '+hcelection2020.report_date});
+faddelem('h3',divhead,{innerText:hcelection2020.title});
 faddelem('h3',divhead,{innerText:hcelection2020.subtitle});
 faddelem('h3',divhead,{innerText:hcelection2020.report_stat1});
 faddelem('h3',divhead,{innerText:hcelection2020.report_stat2});
+faddelem('h3',divhead,{innerText:hcelection2020.source});
+let divresults = faddelem('div',document.body);
+function fresults(seq) {
+   divresults.innerHTML = null;
+   let rseq = (seq==-1) ? ffillary(0,races.length-1) : [seq];
+   for (let rs of rseq) {
+      let race = hcelection2020.races[rs];
+      let divrace = faddelem('div',divresults);
+      faddelem('h2',divrace,{classList:'divrace',innerText:race.description});
+      let table = faddelem('table',divrace);
 
-for (let race of hcelection2020.races) {
-   let divrace = faddelem('div',document.body);
-   faddelem('h2',divrace,{classList:'divrace',innerText:race.description});
-   let table = faddelem('table',divrace);
+      let thead = faddelem('thead',table);
+      let headers = [...hcelection2020.results_labels.slice(0,6)];
+      for (let choice of race.choices) { headers.push(choice.replace('/','/ ')); };
+      headers.push('Totals');
+      faddrow('th',thead,headers);
 
-   let thead = faddelem('thead',table);
-   let headers = [...hcelection2020.results_labels.slice(0,6)];
-   for (let choice of race.choices) { headers.push(choice.replace('/','/ ')); };
-   headers.push('Totals');
-   faddrow('th',thead,headers);
+      let tbody = faddelem('tbody',table);
+      let precincts = race.results.slice(1);
+      for (let precinct of precincts) {
+         let row = [...precinct.slice(0,6),...precinct[7],precinct[6]];
+         for (let r=1;r<row.length;r++) { row[r] = (r===5) ? fround(row[r],2) : fcomnum(row[r]); };
+         faddrow('td',tbody,row);
+      };
 
-   let tbody = faddelem('tbody',table);
-   let precincts = race.results.slice(1);
-   for (let precinct of precincts) {
-      let row = [...precinct.slice(0,6),...precinct[7],precinct[6]];
-      for (let r=1;r<row.length;r++) { row[r] = (r===5) ? fround(row[r],2) : fcomnum(row[r]); };
-      faddrow('td',tbody,row);
+      let tfoot = faddelem('tfoot',table);
+      let total = race.results[0];
+      let footers = [...total.slice(0,6),...total[7],total[6]];
+      for (let f=1;f<footers.length;f++) { footers[f] = (f===5) ? footers[f] : fcomnum(footers[f]); };
+      faddrow('td',tfoot,footers);
    };
-
-   let tfoot = faddelem('tfoot',table);
-   let total = race.results[0];
-   let footers = [...total.slice(0,6),...total[7],total[6]];
-   for (let f=1;f<footers.length;f++) { footers[f] = (f===5) ? footers[f] : fcomnum(footers[f]); };
-   faddrow('td',tfoot,footers);
 };
+
+let selrace = faddelem('select',divsel);
+let races = hcelection2020.races;
+faddelem('option',selrace,{value:-1,innerText:'All Races'});
+for (let r=0;r<races.length;r++) { faddelem('option',selrace,{value:r,innerText:races[r].description}); }; 
+selrace.addEventListener("change",function(){fresults(this.value);});
+selrace[1].selected = true;
+fresults(selrace.value);
+
 </script>
 
 </body>
